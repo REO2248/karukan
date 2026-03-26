@@ -139,6 +139,8 @@ pub struct InputMethodEngine {
     dicts: Dictionaries,
     /// Learning cache (user conversion history)
     learning: Option<LearningCache>,
+    /// Text remaining after partial conversion (cursor-based split)
+    remaining_after_conversion: Option<String>,
 }
 
 impl InputMethodEngine {
@@ -159,6 +161,7 @@ impl InputMethodEngine {
             live: LiveConversion::default(),
             dicts: Dictionaries::default(),
             learning: None,
+            remaining_after_conversion: None,
         }
     }
 

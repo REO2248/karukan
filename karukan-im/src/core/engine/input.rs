@@ -14,6 +14,16 @@ fn append_candidates_dedup(target: &mut Vec<Candidate>, source: Vec<Candidate>) 
 impl InputMethodEngine {
     /// Refresh the input state: rebuild preedit and run auto-suggest for candidates.
     pub(super) fn refresh_input_state(&mut self) -> EngineResult {
+        // When auto_suggest is disabled, skip candidate display and aux text during composing
+        if !self.config.auto_suggest {
+            self.live.text.clear();
+            let preedit = self.set_composing_state();
+            return EngineResult::consumed()
+                .with_action(EngineAction::UpdatePreedit(preedit))
+                .with_action(EngineAction::HideCandidates)
+                .with_action(EngineAction::HideAuxText);
+        }
+
         // Run auto-suggest
         let candidates = if !self.input_buf.text.is_empty() {
             let reading = self.input_buf.text.clone();
@@ -102,9 +112,15 @@ impl InputMethodEngine {
             self.input_buf.clear();
             self.input_buf.insert("\u{3000}");
             let preedit = self.set_composing_state();
-            return EngineResult::consumed()
-                .with_action(EngineAction::UpdatePreedit(preedit))
-                .with_action(EngineAction::UpdateAuxText(self.format_aux_composing()));
+            let mut result =
+                EngineResult::consumed().with_action(EngineAction::UpdatePreedit(preedit));
+            if self.config.auto_suggest {
+                result = result
+                    .with_action(EngineAction::UpdateAuxText(self.format_aux_composing()));
+            } else {
+                result = result.with_action(EngineAction::HideAuxText);
+            }
+            return result;
         }
 
         // Only handle printable characters without modifiers (except shift)
@@ -167,9 +183,14 @@ impl InputMethodEngine {
 
         let preedit = self.set_composing_state();
 
-        EngineResult::consumed()
-            .with_action(EngineAction::UpdatePreedit(preedit))
-            .with_action(EngineAction::UpdateAuxText(self.format_aux_composing()))
+        let mut result =
+            EngineResult::consumed().with_action(EngineAction::UpdatePreedit(preedit));
+        if self.config.auto_suggest {
+            result = result.with_action(EngineAction::UpdateAuxText(self.format_aux_composing()));
+        } else {
+            result = result.with_action(EngineAction::HideAuxText);
+        }
+        result
     }
 
     /// Insert a full-width space (U+3000) at cursor position
