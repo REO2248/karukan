@@ -43,3 +43,34 @@ fn test_conversion_char_commits_and_continues_romaji() {
     engine.process_key(&press('a'));
     assert_eq!(engine.preedit().unwrap().text(), "か");
 }
+
+#[test]
+fn test_shift_tab_navigation() {
+    let mut engine = InputMethodEngine::new();
+
+    // Type "あ" and enter conversion
+    engine.process_key(&press('a'));
+    engine.process_key(&press_key(Keysym::SPACE));
+
+    // Assume we have at least 2 candidates.
+    // Initial state: selected index 0.
+
+    // Press Tab -> next candidate (index 1)
+    engine.process_key(&press_key(Keysym::TAB));
+    let index1 = match engine.state() {
+        InputState::Conversion { candidates, .. } => candidates.cursor(),
+        _ => panic!("Not in conversion state"),
+    };
+    assert_eq!(index1, 1);
+
+    // Press Shift+Tab -> previous candidate (index 0)
+    let shift_tab = KeyEvent::new(Keysym::TAB, KeyModifiers::new().with_shift(true), true);
+    engine.process_key(&shift_tab);
+    let index0 = match engine.state() {
+        InputState::Conversion { candidates, .. } => candidates.cursor(),
+        _ => panic!("Not in conversion state"),
+    };
+    assert_eq!(index0, 0);
+}
+
+
