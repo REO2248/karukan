@@ -20,6 +20,7 @@ fn composing_engine(reading: &str) -> InputMethodEngine {
     engine.state = InputState::Composing {
         preedit: Preedit::new(),
         romaji_buffer: String::new(),
+        candidates: None,
     };
     engine.converters.kanji = None;
     engine

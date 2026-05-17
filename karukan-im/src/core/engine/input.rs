@@ -53,11 +53,11 @@ impl InputMethodEngine {
                     .with_action(EngineAction::HideCandidates)
                     .with_action(EngineAction::UpdateAuxText(self.format_aux_composing()));
             }
+            let candidate_list = CandidateList::new(all_candidates);
+            self.set_composing_candidates(candidate_list.clone());
             return EngineResult::consumed()
                 .with_action(EngineAction::UpdatePreedit(preedit))
-                .with_action(EngineAction::ShowCandidates(CandidateList::new(
-                    all_candidates,
-                )))
+                .with_action(EngineAction::ShowCandidates(candidate_list))
                 .with_action(EngineAction::UpdateAuxText(self.format_aux_composing()));
         };
 
@@ -74,9 +74,9 @@ impl InputMethodEngine {
             if all_candidates.is_empty() {
                 result = result.with_action(EngineAction::HideCandidates);
             } else {
-                result = result.with_action(EngineAction::ShowCandidates(CandidateList::new(
-                    all_candidates,
-                )));
+                let candidate_list = CandidateList::new(all_candidates);
+                self.set_composing_candidates(candidate_list.clone());
+                result = result.with_action(EngineAction::ShowCandidates(candidate_list));
             }
             let aux = self.format_aux_suggest(&self.input_buf.text.clone());
             return result.with_action(EngineAction::UpdateAuxText(aux));
@@ -96,11 +96,11 @@ impl InputMethodEngine {
         // Then dictionary candidates
         append_candidates_dedup(&mut all_candidates, self.lookup_dict_candidates(&reading));
         let aux = self.format_aux_suggest(&self.input_buf.text.clone());
+        let candidate_list = CandidateList::new(all_candidates);
+        self.set_composing_candidates(candidate_list.clone());
         EngineResult::consumed()
             .with_action(EngineAction::UpdatePreedit(preedit))
-            .with_action(EngineAction::ShowCandidates(CandidateList::new(
-                all_candidates,
-            )))
+            .with_action(EngineAction::ShowCandidates(candidate_list))
             .with_action(EngineAction::UpdateAuxText(aux))
     }
 
@@ -269,6 +269,11 @@ impl InputMethodEngine {
             Keysym::HOME => self.move_caret_home(),
             Keysym::END => self.move_caret_end(),
             _ => {
+                // Check for Alt+Digit (1-9) to select and commit from suggest list
+                if key.modifiers.alt_key && let Some(digit) = key.keysym.digit_value() {
+                    return self.select_candidate_by_digit(digit);
+                }
+
                 if let Some(ch) = key.to_char()
                     && !key.modifiers.control_key
                     && !key.modifiers.alt_key

@@ -18,6 +18,8 @@ pub enum InputState {
         preedit: Preedit,
         /// Unconverted romaji buffer (e.g., "k" waiting for next char)
         romaji_buffer: String,
+        /// Optional list of auto-suggest candidates
+        candidates: Option<CandidateList>,
     },
 
     /// Conversion mode - selecting from candidates
@@ -53,18 +55,20 @@ impl InputState {
         }
     }
 
-    /// Get candidates in conversion state
+    /// Get candidates if any (either conversion or auto-suggest)
     pub fn candidates(&self) -> Option<&CandidateList> {
         match self {
             Self::Conversion { candidates, .. } => Some(candidates),
+            Self::Composing { candidates, .. } => candidates.as_ref(),
             _ => None,
         }
     }
 
-    /// Get mutable reference to candidates
+    /// Get mutable reference to candidates if any
     pub fn candidates_mut(&mut self) -> Option<&mut CandidateList> {
         match self {
             Self::Conversion { candidates, .. } => Some(candidates),
+            Self::Composing { candidates, .. } => candidates.as_mut(),
             _ => None,
         }
     }

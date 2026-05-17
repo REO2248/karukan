@@ -258,8 +258,20 @@ impl InputMethodEngine {
         self.state = InputState::Composing {
             preedit: preedit.clone(),
             romaji_buffer,
+            candidates: None,
         };
         preedit
+    }
+
+    /// Update the candidate list in the current Composing state.
+    fn set_composing_candidates(&mut self, candidates: CandidateList) {
+        if let InputState::Composing {
+            candidates: state_candidates,
+            ..
+        } = &mut self.state
+        {
+            *state_candidates = Some(candidates);
+        }
     }
 
     /// Flush the romaji buffer and insert result at cursor position

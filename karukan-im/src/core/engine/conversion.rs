@@ -245,6 +245,7 @@ impl InputMethodEngine {
             self.state = InputState::Composing {
                 preedit: preedit.clone(),
                 romaji_buffer: String::new(),
+                candidates: None,
             };
             return EngineResult::consumed().with_action(EngineAction::UpdatePreedit(preedit));
         }
@@ -643,7 +644,9 @@ impl InputMethodEngine {
                 }
 
                 // Check for digit selection (1-9)
-                if let Some(digit) = key.keysym.digit_value() {
+                if let Some(digit) = key.keysym.digit_value()
+                    && (key.modifiers.is_empty() || key.modifiers.alt_key)
+                {
                     return self.select_candidate_by_digit(digit);
                 }
 
@@ -724,6 +727,7 @@ impl InputMethodEngine {
             self.state = InputState::Composing {
                 preedit: preedit.clone(),
                 romaji_buffer: String::new(),
+                candidates: None,
             };
             return EngineResult::consumed().with_action(EngineAction::UpdatePreedit(preedit));
         }
@@ -891,7 +895,7 @@ impl InputMethodEngine {
     }
 
     /// Select candidate by digit (1-9)
-    fn select_candidate_by_digit(&mut self, digit: usize) -> EngineResult {
+    pub(super) fn select_candidate_by_digit(&mut self, digit: usize) -> EngineResult {
         let (selected_text, reading) = {
             let candidates = match self.state.candidates_mut() {
                 Some(c) => c,
