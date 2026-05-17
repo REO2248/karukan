@@ -92,7 +92,7 @@ impl InputMethodEngine {
         } else {
             format!(" {}{}", self.input_buf.text, romaji_buf)
         };
-        let live_indicator = if self.live.enabled { "⚡" } else { "" };
+        let live_indicator = "";
 
         if self.show_debug_info {
             let ctx = self.display_context();
@@ -188,7 +188,7 @@ impl InputMethodEngine {
             String::new()
         };
 
-        let live_indicator = if self.live.enabled { "⚡" } else { "" };
+        let live_indicator = "";
         // Append unconverted romaji buffer to reading (e.g. "わせだ" + "d" → "わせだd")
         let romaji_buf = self.converters.romaji.buffer();
         let display_reading = if romaji_buf.is_empty() {
