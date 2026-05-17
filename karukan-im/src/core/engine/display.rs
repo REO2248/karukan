@@ -85,6 +85,10 @@ impl InputMethodEngine {
 
     /// Format aux text for composing input mode
     pub(super) fn format_aux_composing(&self) -> String {
+        if !self.show_debug_info {
+            return String::new();
+        }
+
         // Show reading + unconverted romaji buffer (e.g. "わせだd")
         let romaji_buf = self.converters.romaji.buffer();
         let reading = if self.input_buf.text.is_empty() && romaji_buf.is_empty() {
@@ -94,18 +98,16 @@ impl InputMethodEngine {
         };
         let live_indicator = "";
 
-        if self.show_debug_info {
+        let debug_info = {
             let ctx = self.display_context();
             let model = self.model_name();
-            let debug_info = if ctx.is_empty() {
+            if ctx.is_empty() {
                 format!(" Karukan ({})", model)
             } else {
                 format!(" Karukan ({}) | {}", model, ctx)
-            };
-            format!("{}{}{}", live_indicator, reading, debug_info)
-        } else {
-            format!("{}{}", live_indicator, reading)
-        }
+            }
+        };
+        format!("{}{}{}", live_indicator, reading, debug_info)
     }
 
     /// Get token count for a reading (returns None if converter not initialized)
@@ -132,7 +134,11 @@ impl InputMethodEngine {
         reading: &str,
         candidates: Option<&CandidateList>,
     ) -> String {
-        let debug_info = if self.show_debug_info {
+        if !self.show_debug_info {
+            return String::new();
+        }
+
+        let debug_info = {
             let ctx = self.display_context();
             let timing = format!(
                 "{}ms/{}ms",
@@ -148,8 +154,6 @@ impl InputMethodEngine {
             } else {
                 format!(" | {} | {} |{} {}", ctx, timing, tokens, model)
             }
-        } else {
-            String::new()
         };
 
         let page_info = candidates
@@ -172,7 +176,11 @@ impl InputMethodEngine {
     /// Note: token count is not shown here to avoid performance overhead on every keystroke
     /// Timing shows inference_ms/process_key_ms (process_key_ms is from previous keystroke)
     pub(super) fn format_aux_suggest(&self, reading: &str) -> String {
-        let debug_info = if self.show_debug_info {
+        if !self.show_debug_info {
+            return String::new();
+        }
+
+        let debug_info = {
             let ctx = self.display_context();
             let timing = format!(
                 "{}ms/{}ms",
@@ -184,8 +192,6 @@ impl InputMethodEngine {
             } else {
                 format!(" | ctx: {} | {} | {}", ctx, timing, model)
             }
-        } else {
-            String::new()
         };
 
         let live_indicator = "";
