@@ -587,10 +587,12 @@ impl InputMethodEngine {
             Keysym::BACKSPACE => self.backspace_conversion(),
             _ => {
                 // Ctrl+N / Ctrl+P: emacs-style candidate navigation
+                // Ctrl+Delete: delete learning entry for selected candidate
                 if key.modifiers.control_key && !key.modifiers.alt_key {
                     match key.keysym {
                         Keysym::KEY_N | Keysym::KEY_N_UPPER => return self.next_candidate(),
                         Keysym::KEY_P | Keysym::KEY_P_UPPER => return self.prev_candidate(),
+                        Keysym::DELETE => return self.delete_selected_learning_entry(),
                         _ => {}
                     }
                 }
@@ -630,6 +632,73 @@ impl InputMethodEngine {
         if let Some(cache) = &mut self.learning {
             cache.record(reading, surface);
         }
+    }
+
+    /// Delete a learning entry. Returns true if found and removed.
+    pub(super) fn delete_learning_entry(&mut self, reading: &str, surface: &str) -> bool {
+        if let Some(cache) = &mut self.learning {
+            cache.delete(reading, surface)
+        } else {
+            false
+        }
+    }
+
+    /// Delete the learning entry for the currently selected candidate.
+    /// Only works if the candidate is from the learning cache.
+    pub(super) fn delete_selected_learning_entry(&mut self) -> EngineResult {
+        let (text, reading) = match &self.state {
+            InputState::Conversion { candidates, .. } => {
+                let text = candidates.selected_text().unwrap_or("").to_string();
+                let reading = candidates.selected().and_then(|c| c.reading.clone());
+                let is_learning = candidates.selected().is_some_and(|c| {
+                    c.source_label.as_deref() == Some("📝 学習")
+                });
+                if !is_learning {
+                    return EngineResult::not_consumed();
+                }
+                (text, reading)
+            }
+            _ => return EngineResult::not_consumed(),
+        };
+
+        let Some(reading) = reading else {
+            return EngineResult::not_consumed();
+        };
+
+        if !self.delete_learning_entry(&reading, &text) {
+            return EngineResult::not_consumed();
+        }
+
+        // Rebuild candidates without the deleted entry
+        let current_reading = self.input_buf.text.clone();
+        let annotated = self.build_conversion_candidates(&current_reading, self.config.num_candidates, false);
+
+        if annotated.is_empty() {
+            // No candidates, stay in composing mode
+            let preedit = Preedit::with_text_underlined(&current_reading);
+            self.state = InputState::Composing {
+                preedit: preedit.clone(),
+                romaji_buffer: String::new(),
+            };
+            return EngineResult::consumed().with_action(EngineAction::UpdatePreedit(preedit));
+        }
+
+        let candidate_list = CandidateList::new(
+            annotated
+                .into_iter()
+                .map(|ac| {
+                    let cand_reading = ac.reading.unwrap_or_else(|| current_reading.clone());
+                    let label = ac.source.label();
+                    Candidate {
+                        text: ac.text,
+                        reading: Some(cand_reading),
+                        source_label: (!label.is_empty()).then(|| label.to_string()),
+                        description: ac.description,
+                    }
+                })
+                .collect(),
+        );
+        self.enter_conversion_state(&current_reading, candidate_list)
     }
 
     /// Commit the current conversion

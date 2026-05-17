@@ -176,6 +176,22 @@ impl LearningCache {
         self.dirty
     }
 
+    /// Delete a specific learning entry. Returns true if found and removed.
+    pub fn delete(&mut self, reading: &str, surface: &str) -> bool {
+        if let Some(entries) = self.entries.get_mut(reading) {
+            let before_len = entries.len();
+            entries.retain(|e| e.surface != surface);
+            if entries.len() < before_len {
+                self.dirty = true;
+                if entries.is_empty() {
+                    self.entries.remove(reading);
+                }
+                return true;
+            }
+        }
+        false
+    }
+
     /// Total number of (reading, surface) pairs across all readings.
     pub fn entry_count(&self) -> usize {
         self.entries.values().map(|v| v.len()).sum()
@@ -435,5 +451,48 @@ mod tests {
         let cache = LearningCache::load(file.path(), 100).unwrap();
         // Only the first valid line should be loaded
         assert_eq!(cache.entry_count(), 1);
+    }
+
+    #[test]
+    fn test_delete_entry() {
+        let mut cache = LearningCache::new(100);
+        cache.record("きょう", "今日");
+        cache.record("きょう", "京");
+        cache.record("あした", "明日");
+
+        assert_eq!(cache.entry_count(), 3);
+
+        // Delete one entry
+        assert!(cache.delete("きょう", "今日"));
+        assert_eq!(cache.entry_count(), 2);
+
+        // Verify remaining entry
+        let results = cache.lookup("きょう");
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].0, "京");
+
+        // Delete non-existent entry
+        assert!(!cache.delete("きょう", "今日"));
+        assert!(!cache.delete(" nonexistent", "今日"));
+
+        // Delete last entry for a reading → reading should be removed
+        assert!(cache.delete("きょう", "京"));
+        assert_eq!(cache.entry_count(), 1);
+        assert!(cache.lookup("きょう").is_empty());
+    }
+
+    #[test]
+    fn test_delete_sets_dirty() {
+        let mut cache = LearningCache::new(100);
+        cache.record("きょう", "今日");
+
+        // Save to clear dirty flag
+        let file = NamedTempFile::new().unwrap();
+        cache.save(file.path()).unwrap();
+        assert!(!cache.is_dirty());
+
+        // Delete should set dirty flag
+        cache.delete("きょう", "今日");
+        assert!(cache.is_dirty());
     }
 }

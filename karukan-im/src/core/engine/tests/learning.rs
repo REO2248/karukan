@@ -109,3 +109,70 @@ fn space_key_keeps_learning_in_composing() {
         texts,
     );
 }
+
+#[test]
+fn ctrl_delete_removes_learning_entry() {
+    // Type reading, press Space to enter conversion, then Ctrl+Delete to remove the learning entry.
+    let mut engine = engine_with_learned("あい", "藍");
+
+    engine.process_key(&press('a'));
+    engine.process_key(&press('i'));
+
+    // Enter conversion mode
+    let result = engine.process_key(&press_key(Keysym::SPACE));
+    assert!(result.consumed);
+    assert!(matches!(engine.state(), InputState::Conversion { .. }));
+
+    // Verify the learning candidate is present
+    let candidates = engine.state().candidates().unwrap();
+    let selected = candidates.selected().unwrap();
+    assert_eq!(selected.text, "藍");
+    assert_eq!(selected.source_label.as_deref(), Some("📝 学習"));
+
+    // Press Ctrl+Delete to remove the learning entry
+    let ctrl_delete = KeyEvent::new(Keysym::DELETE, KeyModifiers::new().with_control(true), true);
+    let result = engine.process_key(&ctrl_delete);
+    assert!(result.consumed);
+
+    // Verify the learning entry is gone from the cache
+    let cache = engine.learning.as_ref().unwrap();
+    assert!(cache.lookup("あい").is_empty());
+
+    // Verify the candidate list is rebuilt without the deleted entry
+    let candidates = engine.state().candidates().unwrap();
+    let texts: Vec<String> = candidates.candidates().iter().map(|c| c.text.clone()).collect();
+    assert!(
+        !texts.contains(&"藍".to_string()),
+        "After Ctrl+Delete, `藍` should be gone from candidates, got {:?}",
+        texts,
+    );
+}
+
+#[test]
+fn ctrl_delete_does_nothing_for_non_learning() {
+    // Type reading, press Space, but the first candidate is NOT from learning.
+    // Ctrl+Delete should be ignored.
+    let mut engine = engine_with_learned("あい", "藍");
+
+    // Add a dictionary candidate that will rank higher
+    engine.converters.romaji.reset();
+    engine.input_buf.clear();
+
+    // Type something with no learning entry
+    engine.process_key(&press('x'));
+    engine.process_key(&press('y'));
+
+    // Enter conversion mode
+    let result = engine.process_key(&press_key(Keysym::SPACE));
+    assert!(result.consumed);
+
+    // The selected candidate should NOT be from learning
+    let candidates = engine.state().candidates().unwrap();
+    let selected = candidates.selected().unwrap();
+    assert_ne!(selected.source_label.as_deref(), Some("📝 学習"));
+
+    // Press Ctrl+Delete — should be ignored (not consumed)
+    let ctrl_delete = KeyEvent::new(Keysym::DELETE, KeyModifiers::new().with_control(true), true);
+    let result = engine.process_key(&ctrl_delete);
+    assert!(!result.consumed);
+}
