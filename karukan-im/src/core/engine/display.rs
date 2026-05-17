@@ -29,10 +29,10 @@ impl InputMethodEngine {
     }
 
     /// Build a preedit for composing state.
-    /// If live conversion text is present, shows live_text + romaji_buffer with caret at end.
+    /// If live conversion text is present (and not frozen), shows live_text + romaji_buffer with caret at end.
     /// Otherwise shows the input buffer display with cursor-based caret.
     pub(super) fn build_composing_preedit(&self) -> Preedit {
-        let (display, caret) = if !self.live.text.is_empty() {
+        let (display, caret) = if !self.live.text.is_empty() && !self.live.frozen {
             let buffer = self.converters.romaji.buffer();
             let display = format!("{}{}", self.live.text, buffer);
             let caret = display.chars().count();

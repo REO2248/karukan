@@ -70,6 +70,12 @@ impl Keysym {
     pub const KEY_L_UPPER: Keysym = Keysym(0x004c); // uppercase 'L'
     pub const KEY_P: Keysym = Keysym(0x0070); // lowercase 'p'
     pub const KEY_P_UPPER: Keysym = Keysym(0x0050); // uppercase 'P'
+    pub const KEY_U: Keysym = Keysym(0x0075); // lowercase 'u'
+    pub const KEY_U_UPPER: Keysym = Keysym(0x0055); // uppercase 'U'
+    pub const KEY_I: Keysym = Keysym(0x0069); // lowercase 'i'
+    pub const KEY_I_UPPER: Keysym = Keysym(0x0049); // uppercase 'I'
+    pub const KEY_O: Keysym = Keysym(0x006f); // lowercase 'o'
+    pub const KEY_O_UPPER: Keysym = Keysym(0x004f); // uppercase 'O'
 
     // Function keys
     pub const F1: Keysym = Keysym(0xffbe);

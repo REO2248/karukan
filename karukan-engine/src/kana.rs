@@ -224,6 +224,43 @@ pub fn fullwidth_to_ascii_char(c: char) -> char {
     }
 }
 
+/// Convert half-width katakana to full-width katakana.
+///
+/// Handles voiced/semi-voiced characters that are represented as two
+/// half-width characters (base + ﾞ/ﾟ). Non-katakana characters pass
+/// through unchanged.
+pub fn half_width_to_full_width_katakana(text: &str) -> String {
+    // We use NFKC normalization for this, as it correctly handles the
+    // mapping and the merging of dakuten/handakuten.
+    // However, NFKC also converts full-width ASCII to half-width.
+    // If we want to ONLY affect katakana, we should be careful.
+    // But for Japanese input, NFKC is generally what's desired for kana.
+    // To be precise and avoid affecting ASCII, we can iterate and only
+    // apply it to the half-width katakana range U+FF61..=U+FF9F.
+    
+    let mut result = String::with_capacity(text.len());
+    let mut chars = text.chars().peekable();
+    
+    while let Some(c) = chars.next() {
+        match c {
+            '\u{FF61}'..='\u{FF9F}' => {
+                // This is a half-width katakana.
+                // Check if it's followed by a dakuten/handakuten.
+                let mut chunk = c.to_string();
+                if let Some(&next) = chars.peek()
+                    && (next == '\u{FF9E}' || next == '\u{FF9F}')
+                {
+                    chunk.push(chars.next().unwrap());
+                }
+                // Use NFKC on this small chunk to get the full-width version
+                result.push_str(&chunk.nfkc().to_string());
+            }
+            _ => result.push(c),
+        }
+    }
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

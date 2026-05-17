@@ -592,6 +592,18 @@ impl InputMethodEngine {
             Keysym::PAGE_DOWN => self.next_candidate_page(),
             Keysym::PAGE_UP => self.prev_candidate_page(),
             Keysym::BACKSPACE => self.backspace_conversion(),
+            Keysym::F6 => {
+                self.cancel_conversion();
+                self.convert_to_hiragana()
+            }
+            Keysym::F7 => {
+                self.cancel_conversion();
+                self.convert_to_katakana()
+            }
+            Keysym::F8 => {
+                self.cancel_conversion();
+                self.convert_to_half_katakana()
+            }
             _ => {
                 // Ctrl+N / Ctrl+P: emacs-style candidate navigation
                 // Ctrl+Delete: delete learning entry for selected candidate
@@ -600,6 +612,21 @@ impl InputMethodEngine {
                         Keysym::KEY_N | Keysym::KEY_N_UPPER => return self.next_candidate(),
                         Keysym::KEY_P | Keysym::KEY_P_UPPER => return self.prev_candidate(),
                         Keysym::DELETE => return self.delete_selected_learning_entry(),
+                        // Ctrl+U: convert to hiragana (F6 equivalent)
+                        Keysym::KEY_U | Keysym::KEY_U_UPPER => {
+                            self.cancel_conversion();
+                            return self.convert_to_hiragana();
+                        }
+                        // Ctrl+I: convert to katakana (F7 equivalent)
+                        Keysym::KEY_I | Keysym::KEY_I_UPPER => {
+                            self.cancel_conversion();
+                            return self.convert_to_katakana();
+                        }
+                        // Ctrl+O: convert to half-width katakana (F8 equivalent)
+                        Keysym::KEY_O | Keysym::KEY_O_UPPER => {
+                            self.cancel_conversion();
+                            return self.convert_to_half_katakana();
+                        }
                         _ => {}
                     }
                 }

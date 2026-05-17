@@ -119,6 +119,9 @@ pub(in crate::core) struct LiveConversion {
     pub enabled: bool,
     /// Converted text (non-empty when live conversion produced a result)
     pub text: String,
+    /// If true, live conversion auto-suggest is temporarily disabled (frozen)
+    /// to preserve manual F-key conversion results.
+    pub frozen: bool,
 }
 
 /// Dictionary store: system, user, and future cache dictionaries

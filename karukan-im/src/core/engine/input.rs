@@ -220,20 +220,47 @@ impl InputMethodEngine {
                 Keysym::KEY_E | Keysym::KEY_E_UPPER => return self.move_caret_end(),
                 // Ctrl+F: move right (Emacs-style Right)
                 Keysym::KEY_F | Keysym::KEY_F_UPPER => return self.move_caret_right(),
+                // Ctrl+U: convert to hiragana (F6 equivalent)
+                Keysym::KEY_U | Keysym::KEY_U_UPPER => return self.convert_to_hiragana(),
+                // Ctrl+I: convert to katakana (F7 equivalent)
+                Keysym::KEY_I | Keysym::KEY_I_UPPER => return self.convert_to_katakana(),
+                // Ctrl+O: convert to half-width katakana (F8 equivalent)
+                Keysym::KEY_O | Keysym::KEY_O_UPPER => return self.convert_to_half_katakana(),
                 _ => {}
             }
         }
 
         match key.keysym {
-            Keysym::RETURN => self.commit_composing(),
-            Keysym::ESCAPE => self.cancel_composing(),
-            Keysym::BACKSPACE => self.backspace_composing(),
-            Keysym::DELETE => self.delete_composing(),
-            Keysym::SPACE | Keysym::DOWN => self.start_conversion(false),
+            Keysym::RETURN => {
+                self.live.frozen = false;
+                self.commit_composing()
+            }
+            Keysym::ESCAPE => {
+                self.live.frozen = false;
+                self.cancel_composing()
+            }
+            Keysym::BACKSPACE => {
+                self.live.frozen = false;
+                self.backspace_composing()
+            }
+            Keysym::DELETE => {
+                self.live.frozen = false;
+                self.delete_composing()
+            }
+            Keysym::SPACE | Keysym::DOWN => {
+                self.live.frozen = false;
+                self.start_conversion(false)
+            }
             // Tab triggers conversion that bypasses the learning cache, so users
             // can escape stale or unwanted learned entries (mozc binds Tab to a
             // different conversion path — PredictAndConvert — in the same spirit).
-            Keysym::TAB => self.start_conversion(true),
+            Keysym::TAB => {
+                self.live.frozen = false;
+                self.start_conversion(true)
+            }
+            Keysym::F6 => self.convert_to_hiragana(),
+            Keysym::F7 => self.convert_to_katakana(),
+            Keysym::F8 => self.convert_to_half_katakana(),
             Keysym::LEFT => self.move_caret_left(),
             Keysym::RIGHT => self.move_caret_right(),
             Keysym::HOME => self.move_caret_home(),
@@ -253,6 +280,19 @@ impl InputMethodEngine {
                     } else {
                         ch
                     };
+
+                    if self.live.frozen {
+                        // User typed a new character after a manual conversion (F6-F8).
+                        // Commit the current converted text first, then start new input.
+                        let commit_result = self.commit_composing();
+                        let input_result = self.start_input(ch, is_shift_alpha);
+
+                        let mut final_result = EngineResult::consumed();
+                        final_result.actions.extend(commit_result.actions);
+                        final_result.actions.extend(input_result.actions);
+                        return final_result;
+                    }
+
                     return self.input_char(ch, is_shift_alpha);
                 }
                 EngineResult::not_consumed()
@@ -325,6 +365,7 @@ impl InputMethodEngine {
         self.converters.romaji.reset();
         self.input_buf.clear();
         self.live.text.clear();
+        self.live.frozen = false;
         self.state = InputState::Empty;
 
         EngineResult::consumed()
@@ -338,8 +379,9 @@ impl InputMethodEngine {
     /// second Escape cancels input entirely.
     pub(super) fn cancel_composing(&mut self) -> EngineResult {
         // If live conversion is active, first Escape returns to hiragana display
-        if !self.live.text.is_empty() {
+        if !self.live.text.is_empty() || self.live.frozen {
             self.live.text.clear();
+            self.live.frozen = false;
             let preedit = self.set_composing_state();
             return EngineResult::consumed()
                 .with_action(EngineAction::UpdatePreedit(preedit))
@@ -350,6 +392,7 @@ impl InputMethodEngine {
         self.converters.romaji.reset();
         self.input_buf.clear();
         self.live.text.clear();
+        self.live.frozen = false;
         self.state = InputState::Empty;
 
         EngineResult::consumed()
