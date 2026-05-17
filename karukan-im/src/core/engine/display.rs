@@ -85,8 +85,6 @@ impl InputMethodEngine {
 
     /// Format aux text for composing input mode
     pub(super) fn format_aux_composing(&self) -> String {
-        let ctx = self.display_context();
-        let model = self.model_name();
         // Show reading + unconverted romaji buffer (e.g. "わせだd")
         let romaji_buf = self.converters.romaji.buffer();
         let reading = if self.input_buf.text.is_empty() && romaji_buf.is_empty() {
@@ -95,10 +93,18 @@ impl InputMethodEngine {
             format!(" {}{}", self.input_buf.text, romaji_buf)
         };
         let live_indicator = if self.live.enabled { "⚡" } else { "" };
-        if ctx.is_empty() {
-            format!("{}{} Karukan ({})", live_indicator, reading, model)
+
+        if self.show_debug_info {
+            let ctx = self.display_context();
+            let model = self.model_name();
+            let debug_info = if ctx.is_empty() {
+                format!(" Karukan ({})", model)
+            } else {
+                format!(" Karukan ({}) | {}", model, ctx)
+            };
+            format!("{}{}{}", live_indicator, reading, debug_info)
         } else {
-            format!("{}{} Karukan ({}) | {}", live_indicator, reading, model, ctx)
+            format!("{}{}", live_indicator, reading)
         }
     }
 
@@ -126,16 +132,26 @@ impl InputMethodEngine {
         reading: &str,
         candidates: Option<&CandidateList>,
     ) -> String {
-        let ctx = self.display_context();
-        let timing = format!(
-            "{}ms/{}ms",
-            self.metrics.conversion_ms, self.metrics.process_key_ms
-        );
-        let model = self.last_used_model();
-        let tokens = self
-            .get_token_count(reading)
-            .map(|t| format!("{}tok", t))
-            .unwrap_or_default();
+        let debug_info = if self.show_debug_info {
+            let ctx = self.display_context();
+            let timing = format!(
+                "{}ms/{}ms",
+                self.metrics.conversion_ms, self.metrics.process_key_ms
+            );
+            let model = self.last_used_model();
+            let tokens = self
+                .get_token_count(reading)
+                .map(|t| format!(" {} |", t))
+                .unwrap_or_else(|| " |".to_string());
+            if ctx.is_empty() {
+                format!(" | {} |{} {}", timing, tokens, model)
+            } else {
+                format!(" | {} | {} |{} {}", ctx, timing, tokens, model)
+            }
+        } else {
+            String::new()
+        };
+
         let page_info = candidates
             .filter(|c| c.total_pages() > 1)
             .map(|c| format!(" ({}/{})", c.current_page() + 1, c.total_pages()))
@@ -146,29 +162,32 @@ impl InputMethodEngine {
             .filter(|a| !a.is_empty())
             .map(|a| format!(" | {}", a))
             .unwrap_or_default();
-        if ctx.is_empty() {
-            format!(
-                "[変換]{} {} | {} {} | {}{}",
-                page_info, reading, timing, tokens, model, source_label
-            )
-        } else {
-            format!(
-                "[変換]{} {} | {} | {} {} | {}{}",
-                page_info, reading, ctx, timing, tokens, model, source_label
-            )
-        }
+        format!(
+            "[変換]{} {}{}{}",
+            page_info, reading, debug_info, source_label
+        )
     }
 
     /// Format aux text for auto-suggest mode
     /// Note: token count is not shown here to avoid performance overhead on every keystroke
     /// Timing shows inference_ms/process_key_ms (process_key_ms is from previous keystroke)
     pub(super) fn format_aux_suggest(&self, reading: &str) -> String {
-        let ctx = self.display_context();
-        let timing = format!(
-            "{}ms/{}ms",
-            self.metrics.conversion_ms, self.metrics.process_key_ms
-        );
-        let model = self.last_used_model();
+        let debug_info = if self.show_debug_info {
+            let ctx = self.display_context();
+            let timing = format!(
+                "{}ms/{}ms",
+                self.metrics.conversion_ms, self.metrics.process_key_ms
+            );
+            let model = self.last_used_model();
+            if ctx.is_empty() {
+                format!(" | {} | {}", timing, model)
+            } else {
+                format!(" | ctx: {} | {} | {}", ctx, timing, model)
+            }
+        } else {
+            String::new()
+        };
+
         let live_indicator = if self.live.enabled { "⚡" } else { "" };
         // Append unconverted romaji buffer to reading (e.g. "わせだ" + "d" → "わせだd")
         let romaji_buf = self.converters.romaji.buffer();
@@ -177,14 +196,7 @@ impl InputMethodEngine {
         } else {
             format!("{}{}", reading, romaji_buf)
         };
-        if ctx.is_empty() {
-            format!("{} {} | {} | {}", live_indicator, display_reading, timing, model)
-        } else {
-            format!(
-                "{} {} | ctx: {} | {} | {}",
-                live_indicator, display_reading, ctx, timing, model
-            )
-        }
+        format!("{} {}{}", live_indicator, display_reading, debug_info)
     }
 
     /// Truncate context to safe size for API calls

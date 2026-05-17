@@ -69,4 +69,29 @@ impl InputMethodEngine {
         EngineResult::consumed()
             .with_action(EngineAction::UpdateAuxText(format!("ライブ変換: {}", mode)))
     }
+
+    /// Toggle debug info display via Ctrl+Shift+D
+    pub(super) fn toggle_debug_info(&mut self) -> EngineResult {
+        self.show_debug_info = !self.show_debug_info;
+        let status = if self.show_debug_info { "ON" } else { "OFF" };
+        debug!("Debug info display toggled: {}", status);
+
+        // Update auxiliary text immediately based on current state
+        let aux = match &self.state {
+            InputState::Conversion { candidates, .. } => {
+                let reading = self.input_buf.text.clone();
+                self.format_aux_conversion_with_page(&reading, Some(candidates))
+            }
+            InputState::Composing { .. } => {
+                if !self.live.text.is_empty() {
+                    self.format_aux_suggest(&self.input_buf.text)
+                } else {
+                    self.format_aux_composing()
+                }
+            }
+            _ => format!("デバッグ情報: {}", status),
+        };
+
+        EngineResult::consumed().with_action(EngineAction::UpdateAuxText(aux))
+    }
 }

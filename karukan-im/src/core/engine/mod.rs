@@ -141,6 +141,8 @@ pub struct InputMethodEngine {
     learning: Option<LearningCache>,
     /// Text remaining after partial conversion (cursor-based split)
     remaining_after_conversion: Option<String>,
+    /// Whether to show verbose debug info in aux text (toggled via Ctrl+Shift+D)
+    pub show_debug_info: bool,
 }
 
 impl InputMethodEngine {
@@ -162,6 +164,7 @@ impl InputMethodEngine {
             dicts: Dictionaries::default(),
             learning: None,
             remaining_after_conversion: None,
+            show_debug_info: false,
         }
     }
 
@@ -360,6 +363,14 @@ impl InputMethodEngine {
             && (key.keysym == Keysym::KEY_L || key.keysym == Keysym::KEY_L_UPPER)
         {
             return self.toggle_live_conversion();
+        }
+
+        // Ctrl+Shift+D: toggle debug info display (works in all states)
+        if key.modifiers.control_key
+            && key.modifiers.shift_key
+            && (key.keysym == Keysym::KEY_D || key.keysym == Keysym::KEY_D_UPPER)
+        {
+            return self.toggle_debug_info();
         }
 
         // Reset adaptive model flag when starting a new word (first key in Empty state)

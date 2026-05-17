@@ -7,6 +7,7 @@ mod basic;
 mod candidates;
 mod conversion;
 mod cursor;
+mod debug_info;
 mod fkeys;
 mod katakana;
 mod learning;

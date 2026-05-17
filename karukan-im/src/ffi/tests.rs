@@ -13,7 +13,9 @@ const XKB_KEY_RETURN: u32 = 0xff0d;
 const XKB_KEY_ESCAPE: u32 = 0xff1b;
 const XKB_KEY_BACKSPACE: u32 = 0xff08;
 const XKB_KEY_SHIFT_L: u32 = 0xffe1;
+const XKB_KEY_D: u32 = 0x64;
 const SHIFT_MASK: u32 = crate::core::keycode::KeyModifiers::SHIFT_MASK;
+const CONTROL_MASK: u32 = crate::core::keycode::KeyModifiers::CONTROL_MASK;
 
 /// RAII wrapper around a raw `KarukanEngine` pointer.
 /// Automatically frees the engine on drop, preventing leaks in tests.
@@ -257,6 +259,7 @@ fn test_surrounding_text_sets_context() {
     karukan_engine_set_surrounding_text(e.ptr(), text.as_ptr(), cursor_pos);
 
     // Surrounding text was set, so context is displayed
+    e.press_with(XKB_KEY_D, CONTROL_MASK | SHIFT_MASK); // Enable debug info
     e.press(XKB_KEY_A);
 
     assert!(
@@ -285,6 +288,7 @@ fn test_surrounding_text_cursor_at_start() {
     let text = std::ffi::CString::new("Hello World").unwrap();
     karukan_engine_set_surrounding_text(e.ptr(), text.as_ptr(), 0);
 
+    e.press_with(XKB_KEY_D, CONTROL_MASK | SHIFT_MASK); // Enable debug info
     e.press(XKB_KEY_A);
 
     // Cursor at start: no left context, right context exists
@@ -311,6 +315,7 @@ fn test_surrounding_text_with_both_contexts() {
 
     karukan_engine_set_surrounding_text(e.ptr(), text.as_ptr(), cursor_pos);
 
+    e.press_with(XKB_KEY_D, CONTROL_MASK | SHIFT_MASK); // Enable debug info
     e.press(XKB_KEY_A);
 
     // Both left and right context should be displayed
@@ -335,6 +340,7 @@ fn test_surrounding_text_cursor_at_end() {
     let text = std::ffi::CString::new("全部左側").unwrap();
     karukan_engine_set_surrounding_text(e.ptr(), text.as_ptr(), "全部左側".chars().count() as u32);
 
+    e.press_with(XKB_KEY_D, CONTROL_MASK | SHIFT_MASK); // Enable debug info
     e.press(XKB_KEY_A);
 
     // Cursor at end: left context exists, no right context
@@ -364,6 +370,7 @@ fn test_surrounding_text_char_offset_japanese() {
     let text = std::ffi::CString::new("あいうえお").unwrap();
     karukan_engine_set_surrounding_text(e.ptr(), text.as_ptr(), 5);
 
+    e.press_with(XKB_KEY_D, CONTROL_MASK | SHIFT_MASK); // Enable debug info
     e.press(XKB_KEY_A);
 
     // Cursor at end: all text is left context
@@ -392,6 +399,7 @@ fn test_surrounding_text_char_offset_middle() {
     let text = std::ffi::CString::new("あいうえお").unwrap();
     karukan_engine_set_surrounding_text(e.ptr(), text.as_ptr(), 2);
 
+    e.press_with(XKB_KEY_D, CONTROL_MASK | SHIFT_MASK); // Enable debug info
     e.press(XKB_KEY_A);
 
     assert!(
