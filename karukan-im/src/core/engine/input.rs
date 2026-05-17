@@ -210,8 +210,6 @@ impl InputMethodEngine {
             match key.keysym {
                 // Ctrl+Space: insert full-width space (U+3000)
                 Keysym::SPACE => return self.input_fullwidth_space(),
-                // Ctrl+K: convert to katakana (one-shot)
-                Keysym::KEY_K | Keysym::KEY_K_UPPER => return self.convert_to_katakana(),
                 // Ctrl+A: move to beginning (Emacs-style Home)
                 Keysym::KEY_A | Keysym::KEY_A_UPPER => return self.move_caret_home(),
                 // Ctrl+B: move left (Emacs-style Left)

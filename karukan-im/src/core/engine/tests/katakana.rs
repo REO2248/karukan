@@ -2,11 +2,11 @@ use super::*;
 
 // --- Katakana Conversion Tests ---
 //
-// Ctrl+K converts current input to katakana (one-shot conversion).
+// F7 converts current input to katakana (one-shot conversion).
 // The converted text is committed as katakana on Enter.
 
 #[test]
-fn test_ctrl_k_converts_to_katakana() {
+fn test_f7_converts_to_katakana() {
     let mut engine = InputMethodEngine::new();
 
     // Type "aiueo" -> "あいうえお"
@@ -17,18 +17,9 @@ fn test_ctrl_k_converts_to_katakana() {
     engine.process_key(&press('o'));
     assert_eq!(engine.preedit().unwrap().text(), "あいうえお");
 
-    // Press Ctrl+k -> should convert preedit to katakana (preedit shows "アイウエオ")
-    let ctrl_k = KeyEvent {
-        keysym: Keysym::KEY_K,
-        modifiers: KeyModifiers {
-            control_key: true,
-            shift_key: false,
-            alt_key: false,
-            super_key: false,
-        },
-        is_press: true,
-    };
-    let result = engine.process_key(&ctrl_k);
+    // Press F7 -> should convert preedit to katakana (preedit shows "アイウエオ")
+    let f7 = press_key(Keysym::F7);
+    let result = engine.process_key(&f7);
 
     assert!(result.consumed);
     // Should NOT commit yet - just convert display
@@ -36,7 +27,7 @@ fn test_ctrl_k_converts_to_katakana() {
         .actions
         .iter()
         .any(|a| matches!(a, EngineAction::Commit(_)));
-    assert!(!has_commit, "Should NOT commit on Ctrl+K");
+    assert!(!has_commit, "Should NOT commit on F7");
 
     // Preedit should show katakana
     assert_eq!(engine.preedit().unwrap().text(), "アイウエオ");
@@ -53,21 +44,12 @@ fn test_ctrl_k_converts_to_katakana() {
 }
 
 #[test]
-fn test_ctrl_k_with_empty_input() {
+fn test_f7_with_empty_input() {
     let mut engine = InputMethodEngine::new();
 
-    // No input, Ctrl+k should do nothing harmful
-    let ctrl_k = KeyEvent {
-        keysym: Keysym::KEY_K,
-        modifiers: KeyModifiers {
-            control_key: true,
-            shift_key: false,
-            alt_key: false,
-            super_key: false,
-        },
-        is_press: true,
-    };
-    let result = engine.process_key(&ctrl_k);
+    // No input, F7 should do nothing harmful
+    let f7 = press_key(Keysym::F7);
+    let result = engine.process_key(&f7);
 
     // Should not crash, state should remain empty
     assert!(matches!(engine.state(), InputState::Empty));
@@ -80,7 +62,7 @@ fn test_ctrl_k_with_empty_input() {
 }
 
 #[test]
-fn test_ctrl_k_uppercase_converts_to_katakana() {
+fn test_f7_converts_and_continues() {
     let mut engine = InputMethodEngine::new();
 
     // Type "aiueo" -> "あいうえお"
@@ -91,18 +73,9 @@ fn test_ctrl_k_uppercase_converts_to_katakana() {
     engine.process_key(&press('o'));
     assert_eq!(engine.preedit().unwrap().text(), "あいうえお");
 
-    // Press Ctrl+K (uppercase K) -> should convert preedit to katakana
-    let ctrl_k_upper = KeyEvent {
-        keysym: Keysym::KEY_K_UPPER,
-        modifiers: KeyModifiers {
-            control_key: true,
-            shift_key: false,
-            alt_key: false,
-            super_key: false,
-        },
-        is_press: true,
-    };
-    let result = engine.process_key(&ctrl_k_upper);
+    // Press F7 -> should convert preedit to katakana
+    let f7 = press_key(Keysym::F7);
+    let result = engine.process_key(&f7);
 
     assert!(result.consumed);
     // Should NOT commit yet
@@ -110,13 +83,19 @@ fn test_ctrl_k_uppercase_converts_to_katakana() {
         .actions
         .iter()
         .any(|a| matches!(a, EngineAction::Commit(_)));
-    assert!(!has_commit, "Should NOT commit on Ctrl+K");
+    assert!(!has_commit, "Should NOT commit on F7");
 
     // Preedit should show katakana
     assert_eq!(engine.preedit().unwrap().text(), "アイウエオ");
 
-    // Type more → new input goes through romaji conversion (not katakana mode)
-    engine.process_key(&press('a'));
-    // Preedit should show katakana + new hiragana
-    assert!(engine.preedit().unwrap().text().ends_with("あ"));
+    // Type more → new input commits the previous katakana and starts new hiragana
+    let result = engine.process_key(&press('a'));
+    
+    // Verify commit action is present (as per the refined behavior)
+    let committed = result.actions.iter().any(|a| matches!(a, EngineAction::Commit(text) if text == "アイウエオ"));
+    assert!(committed, "Should commit 'アイウエオ'");
+
+    // Preedit should show the new character
+    assert_eq!(engine.preedit().unwrap().text(), "あ");
 }
+
