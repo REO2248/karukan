@@ -2,9 +2,8 @@ use super::*;
 
 // --- Katakana Conversion Tests ---
 //
-// Pure hiragana→katakana mapping is covered by `karukan_engine::kana` tests;
-// the cases here exercise the IM-side state-machine integration (Ctrl+K
-// switches mode, baking, etc.).
+// Ctrl+K converts current input to katakana (one-shot conversion).
+// The converted text is committed as katakana on Enter.
 
 #[test]
 fn test_ctrl_k_converts_to_katakana() {
@@ -42,10 +41,6 @@ fn test_ctrl_k_converts_to_katakana() {
     // Preedit should show katakana
     assert_eq!(engine.preedit().unwrap().text(), "アイウエオ");
     assert!(matches!(engine.state(), InputState::Composing { .. }));
-    assert!(
-        engine.input_mode == InputMode::Katakana,
-        "Should be in katakana mode"
-    );
 
     // Now press Enter -> should commit as katakana
     let enter_result = engine.process_key(&press_key(Keysym::RETURN));
@@ -119,96 +114,9 @@ fn test_ctrl_k_uppercase_converts_to_katakana() {
 
     // Preedit should show katakana
     assert_eq!(engine.preedit().unwrap().text(), "アイウエオ");
-    assert!(
-        engine.input_mode == InputMode::Katakana,
-        "Should be in katakana mode"
-    );
 
-    // Type more → katakana mode persists (like alphabet mode)
+    // Type more → new input goes through romaji conversion (not katakana mode)
     engine.process_key(&press('a'));
-    assert!(
-        engine.input_mode == InputMode::Katakana,
-        "Katakana mode should persist across input"
-    );
-    // Preedit should show katakana for the new input too
-    assert!(engine.preedit().unwrap().text().ends_with("ア"));
-}
-
-#[test]
-fn test_katakana_baked_on_switch_to_alphabet() {
-    let mut engine = InputMethodEngine::new();
-
-    // Type "aiueo" → "あいうえお"
-    engine.process_key(&press('a'));
-    engine.process_key(&press('i'));
-    engine.process_key(&press('u'));
-    engine.process_key(&press('e'));
-    engine.process_key(&press('o'));
-    assert_eq!(engine.preedit().unwrap().text(), "あいうえお");
-
-    // Ctrl+K → katakana mode, displays "アイウエオ"
-    let ctrl_k = KeyEvent {
-        keysym: Keysym::KEY_K,
-        modifiers: KeyModifiers {
-            control_key: true,
-            shift_key: false,
-            alt_key: false,
-            super_key: false,
-        },
-        is_press: true,
-    };
-    engine.process_key(&ctrl_k);
-    assert_eq!(engine.preedit().unwrap().text(), "アイウエオ");
-
-    // Switch to alphabet mode via Shift+L → katakana should be baked in
-    engine.process_key(&press_shift('L'));
-    assert!(engine.input_mode == InputMode::Alphabet);
-    // The katakana text should be preserved, not reverted to hiragana
-    assert_eq!(engine.input_buf.text, "アイウエオL");
-
-    // Type alphabet chars → appended after katakana
-    engine.process_key(&press('i'));
-    engine.process_key(&press('n'));
-    engine.process_key(&press('u'));
-    engine.process_key(&press('x'));
-    assert_eq!(engine.preedit().unwrap().text(), "アイウエオLinux");
-}
-
-#[test]
-fn test_ctrl_k_is_one_way_to_katakana() {
-    let mut engine = InputMethodEngine::new();
-
-    // Type "ai" → "あい"
-    engine.process_key(&press('a'));
-    engine.process_key(&press('i'));
-
-    // Ctrl+K → katakana mode
-    let ctrl_k = KeyEvent {
-        keysym: Keysym::KEY_K,
-        modifiers: KeyModifiers {
-            control_key: true,
-            shift_key: false,
-            alt_key: false,
-            super_key: false,
-        },
-        is_press: true,
-    };
-    engine.process_key(&ctrl_k);
-    assert!(engine.input_mode == InputMode::Katakana);
-    assert_eq!(engine.preedit().unwrap().text(), "アイ");
-
-    // Ctrl+K again → still katakana mode (not a toggle)
-    engine.process_key(&ctrl_k);
-    assert!(engine.input_mode == InputMode::Katakana);
-    assert_eq!(engine.preedit().unwrap().text(), "アイ");
-
-    // Right Super → return to hiragana mode, katakana is baked in
-    engine.process_key(&press_key(Keysym::SUPER_R));
-    assert!(engine.input_mode == InputMode::Hiragana);
-    assert_eq!(engine.input_buf.text, "アイ");
-    assert_eq!(engine.preedit().unwrap().text(), "アイ");
-
-    // New input in hiragana mode
-    engine.process_key(&press('u'));
-    assert_eq!(engine.preedit().unwrap().text(), "アイう");
+    // Preedit should show katakana + new hiragana
+    assert!(engine.preedit().unwrap().text().ends_with("あ"));
 }

@@ -131,8 +131,6 @@ pub struct InputMethodEngine {
     config: EngineConfig,
     /// Conversion timing and adaptive model metrics
     metrics: ConversionMetrics,
-    /// Current input mode (Hiragana, Katakana, or Alphabet)
-    input_mode: InputMode,
     /// Composed input buffer (hiragana text, cursor position)
     input_buf: InputBuffer,
     /// Live conversion state
@@ -157,7 +155,6 @@ impl InputMethodEngine {
             surrounding_context: None,
             config: EngineConfig::default(),
             metrics: ConversionMetrics::default(),
-            input_mode: InputMode::Hiragana,
             input_buf: InputBuffer::new(),
             live: LiveConversion::default(),
             dicts: Dictionaries::default(),
@@ -225,7 +222,6 @@ impl InputMethodEngine {
     pub fn reset(&mut self) {
         self.state = InputState::Empty;
         self.converters.romaji.reset();
-        self.input_mode = InputMode::Hiragana;
         self.input_buf.clear();
         self.live.text.clear();
         self.metrics = ConversionMetrics::default();
@@ -258,14 +254,6 @@ impl InputMethodEngine {
             romaji_buffer,
         };
         preedit
-    }
-
-    /// Convert hiragana in input_buf to katakana permanently.
-    /// Called when leaving Katakana mode so the preedit doesn't revert.
-    fn bake_katakana(&mut self) {
-        if !self.input_buf.text.is_empty() {
-            self.input_buf.text = karukan_engine::hiragana_to_katakana(&self.input_buf.text);
-        }
     }
 
     /// Flush the romaji buffer and insert result at cursor position
@@ -343,35 +331,6 @@ impl InputMethodEngine {
         self.surrounding_context = Some(SurroundingContext { left, right });
     }
 
-    /// Handle mode toggle keys (Right Alt/Super/Meta/Hyper): one-way non-Hiragana → Hiragana.
-    /// Returns `Some(result)` if the key was handled, `None` if not a mode toggle key.
-    fn handle_mode_toggle_key(&mut self, key: &KeyEvent) -> Option<EngineResult> {
-        if !key.keysym.is_mode_toggle_key() {
-            return None;
-        }
-        // Only consume the key when actually switching; otherwise pass through
-        // so the system can properly track modifier state.
-        if key.is_press && self.input_mode != InputMode::Hiragana {
-            // Bake katakana before switching so preedit doesn't revert
-            if self.input_mode == InputMode::Katakana {
-                self.bake_katakana();
-            }
-            self.input_mode = InputMode::Hiragana;
-            self.flush_romaji_to_composed();
-            let aux = self.format_aux_composing();
-            if matches!(self.state, InputState::Composing { .. }) {
-                let preedit = self.set_composing_state();
-                return Some(
-                    EngineResult::consumed()
-                        .with_action(EngineAction::UpdatePreedit(preedit))
-                        .with_action(EngineAction::UpdateAuxText(aux)),
-                );
-            }
-            return Some(EngineResult::consumed().with_action(EngineAction::UpdateAuxText(aux)));
-        }
-        Some(EngineResult::not_consumed())
-    }
-
     /// Process a key event
     pub fn process_key(&mut self, key: &KeyEvent) -> EngineResult {
         // Log modifier key events for debugging key mapping issues
@@ -380,11 +339,6 @@ impl InputMethodEngine {
                 "modifier key: keysym=0x{:04x} press={} modifiers={:?}",
                 key.keysym.0, key.is_press, key.modifiers
             );
-        }
-
-        // Right Alt/Super/Meta/Hyper: one-way non-Hiragana → Hiragana switch
-        if let Some(result) = self.handle_mode_toggle_key(key) {
-            return result;
         }
 
         // Modifier-only keys (Shift, Ctrl, Alt_L, Super_L, etc.): pass through

@@ -261,7 +261,7 @@ fn test_surrounding_text_sets_context() {
 
     assert!(
         e.aux().contains("Karukan"),
-        "Aux should contain mode indicator: {}",
+        "Aux should contain 'Karukan': {}",
         e.aux()
     );
 }
@@ -411,7 +411,7 @@ fn test_surrounding_text_char_offset_middle() {
     );
 }
 
-// --- Shift+letter alphabet mode FFI tests ---
+// --- Shift+letter uppercase input FFI tests ---
 
 #[test]
 fn test_ffi_shift_a_produces_uppercase_a() {
@@ -423,12 +423,12 @@ fn test_ffi_shift_a_produces_uppercase_a() {
     // 'a' press with ShiftMask (fcitx5 sends lowercase keysym + shift state)
     assert!(e.press_with(XKB_KEY_A, SHIFT_MASK));
 
-    // Preedit should be uppercase "A", not "あ"
+    // Preedit should be uppercase "A"
     assert!(e.has_preedit());
     assert_eq!(
         e.preedit(),
         "A",
-        "Shift+A should produce 'A' in preedit, not hiragana"
+        "Shift+A should produce 'A' in preedit"
     );
 }
 
@@ -443,7 +443,7 @@ fn test_ffi_shift_a_after_hiragana() {
     // Shift_L press
     e.press(XKB_KEY_SHIFT_L);
 
-    // 'a' with ShiftMask → should enter alphabet mode and add 'A'
+    // 'a' with ShiftMask → should add uppercase 'A'
     e.press_with(XKB_KEY_A, SHIFT_MASK);
     assert_eq!(
         e.preedit(),
@@ -466,25 +466,25 @@ fn test_ffi_uppercase_keysym_without_shift_flag() {
     assert_eq!(
         e.preedit(),
         "A",
-        "Uppercase keysym without shift flag should produce 'A', not hiragana"
+        "Uppercase keysym without shift flag should produce 'A'"
     );
 }
 
 #[test]
-fn test_ffi_standalone_shift_does_not_toggle_mode() {
+fn test_ffi_standalone_shift_does_not_affect_input() {
     let e = TestEngine::new();
 
     // Shift_L press
     e.press(XKB_KEY_SHIFT_L);
 
-    // Shift_L release → standalone Shift should NOT toggle mode
+    // Shift_L release → standalone Shift should not affect input
     e.release(XKB_KEY_SHIFT_L);
 
-    // Now type 'a' without shift → should be 'あ' (still in hiragana mode)
+    // Now type 'a' without shift → should be 'あ'
     e.press(XKB_KEY_A);
     assert_eq!(
         e.preedit(),
         "あ",
-        "After standalone Shift, 'a' should still produce hiragana"
+        "After standalone Shift, 'a' should produce hiragana"
     );
 }

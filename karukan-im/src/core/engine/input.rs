@@ -14,25 +14,18 @@ fn append_candidates_dedup(target: &mut Vec<Candidate>, source: Vec<Candidate>) 
 impl InputMethodEngine {
     /// Refresh the input state: rebuild preedit and run auto-suggest for candidates.
     pub(super) fn refresh_input_state(&mut self) -> EngineResult {
-        // Alphabet mode with active live conversion: preserve the conversion display
-        if self.input_mode == InputMode::Alphabet && !self.live.text.is_empty() {
-            let preedit = self.set_composing_state();
-            return EngineResult::consumed().with_action(EngineAction::UpdatePreedit(preedit));
-        }
-
-        // Run auto-suggest (skip in alphabet mode — no hiragana to convert)
-        let candidates =
-            if self.input_mode != InputMode::Alphabet && !self.input_buf.text.is_empty() {
-                let reading = self.input_buf.text.clone();
-                let result = self.run_auto_suggest(&reading, 1);
-                if !result.is_empty() && result[0] != self.input_buf.text {
-                    Some((result, reading))
-                } else {
-                    None
-                }
+        // Run auto-suggest
+        let candidates = if !self.input_buf.text.is_empty() {
+            let reading = self.input_buf.text.clone();
+            let result = self.run_auto_suggest(&reading, 1);
+            if !result.is_empty() && result[0] != self.input_buf.text {
+                Some((result, reading))
             } else {
                 None
-            };
+            }
+        } else {
+            None
+        };
 
         let Some((candidates, reading)) = candidates else {
             // No useful AI suggestion — still show learning + dictionary + rule-based
@@ -59,7 +52,7 @@ impl InputMethodEngine {
         };
 
         // Live conversion mode: show converted text in preedit
-        if self.live.enabled && self.input_mode != InputMode::Katakana {
+        if self.live.enabled {
             self.live.text = candidates[0].clone();
             let preedit = self.set_composing_state();
             let mut result =
@@ -125,26 +118,24 @@ impl InputMethodEngine {
             let is_shift_alpha =
                 ch.is_ascii_uppercase() || (shift_active && ch.is_ascii_alphabetic());
 
-            if is_shift_alpha && self.input_mode != InputMode::Alphabet {
-                self.input_mode = InputMode::Alphabet;
-            }
-            let ch = if self.input_mode == InputMode::Alphabet && is_shift_alpha {
+            let ch = if is_shift_alpha {
                 ch.to_ascii_uppercase()
             } else {
                 ch
             };
-            return self.start_input(ch);
+            return self.start_input(ch, is_shift_alpha);
         }
         EngineResult::not_consumed()
     }
 
     /// Start input with a character (first character of a new input session).
-    /// In alphabet mode, inserts directly; otherwise goes through romaji conversion.
-    pub(super) fn start_input(&mut self, ch: char) -> EngineResult {
+    /// If `is_uppercase` is true, inserts directly without romaji conversion.
+    pub(super) fn start_input(&mut self, ch: char, is_uppercase: bool) -> EngineResult {
         self.converters.romaji.reset();
         self.input_buf.clear();
 
-        if self.input_mode == InputMode::Alphabet {
+        if is_uppercase {
+            // Uppercase letter: insert directly without romaji conversion
             self.input_buf.insert(&ch.to_string());
         } else {
             let prev_output_len = 0;
@@ -198,8 +189,8 @@ impl InputMethodEngine {
             match key.keysym {
                 // Ctrl+Space: insert full-width space (U+3000)
                 Keysym::SPACE => return self.input_fullwidth_space(),
-                // Ctrl+K: enter katakana mode
-                Keysym::KEY_K | Keysym::KEY_K_UPPER => return self.enter_katakana_mode(),
+                // Ctrl+K: convert to katakana (one-shot)
+                Keysym::KEY_K | Keysym::KEY_K_UPPER => return self.convert_to_katakana(),
                 // Ctrl+A: move to beginning (Emacs-style Home)
                 Keysym::KEY_A | Keysym::KEY_A_UPPER => return self.move_caret_home(),
                 // Ctrl+B: move left (Emacs-style Left)
@@ -217,12 +208,11 @@ impl InputMethodEngine {
             Keysym::ESCAPE => self.cancel_composing(),
             Keysym::BACKSPACE => self.backspace_composing(),
             Keysym::DELETE => self.delete_composing(),
-            Keysym::SPACE if self.input_mode == InputMode::Alphabet => self.input_char(' '),
+            Keysym::SPACE | Keysym::DOWN => self.start_conversion(false),
             // Tab triggers conversion that bypasses the learning cache, so users
             // can escape stale or unwanted learned entries (mozc binds Tab to a
             // different conversion path — PredictAndConvert — in the same spirit).
             Keysym::TAB => self.start_conversion(true),
-            Keysym::SPACE | Keysym::DOWN => self.start_conversion(false),
             Keysym::LEFT => self.move_caret_left(),
             Keysym::RIGHT => self.move_caret_right(),
             Keysym::HOME => self.move_caret_home(),
@@ -237,21 +227,12 @@ impl InputMethodEngine {
                     let is_shift_alpha =
                         ch.is_ascii_uppercase() || (shift_active && ch.is_ascii_alphabetic());
 
-                    if is_shift_alpha && self.input_mode != InputMode::Alphabet {
-                        // Bake katakana before switching so preedit doesn't revert
-                        if self.input_mode == InputMode::Katakana {
-                            self.bake_katakana();
-                        }
-                        self.input_mode = InputMode::Alphabet;
-                        self.flush_romaji_to_composed();
-                        self.live.text.clear();
-                    }
-                    let ch = if self.input_mode == InputMode::Alphabet && is_shift_alpha {
+                    let ch = if is_shift_alpha {
                         ch.to_ascii_uppercase()
                     } else {
                         ch
                     };
-                    return self.input_char(ch);
+                    return self.input_char(ch, is_shift_alpha);
                 }
                 EngineResult::not_consumed()
             }
@@ -259,9 +240,9 @@ impl InputMethodEngine {
     }
 
     /// Input a character during composing.
-    /// In alphabet mode, inserts directly; otherwise goes through romaji conversion.
-    pub(super) fn input_char(&mut self, ch: char) -> EngineResult {
-        if self.input_mode == InputMode::Alphabet {
+    /// If `is_uppercase` is true, inserts directly without romaji conversion.
+    pub(super) fn input_char(&mut self, ch: char, is_uppercase: bool) -> EngineResult {
+        if is_uppercase {
             self.input_buf.insert(&ch.to_string());
             return self.refresh_input_state();
         }
@@ -296,17 +277,14 @@ impl InputMethodEngine {
         self.refresh_input_state()
     }
 
-    /// Commit the current hiragana input (or katakana if in katakana mode)
+    /// Commit the current hiragana input
     /// In live conversion mode, commits the converted text instead of hiragana.
     pub(super) fn commit_composing(&mut self) -> EngineResult {
         // Flush any pending romaji into composed_hiragana
         self.flush_romaji_to_composed();
 
         let reading = self.input_buf.text.clone();
-        let text = if self.input_mode == InputMode::Katakana {
-            // Katakana mode always commits katakana, ignoring live conversion
-            karukan_engine::hiragana_to_katakana(&reading)
-        } else if !self.live.text.is_empty() {
+        let text = if !self.live.text.is_empty() {
             // Live conversion active: commit converted text
             self.live.text.clone()
         } else {

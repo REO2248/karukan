@@ -658,7 +658,7 @@ impl InputMethodEngine {
         self.input_buf.text.clear();
 
         // Start new input with the character
-        let new_input_result = self.start_input(ch);
+        let new_input_result = self.start_input(ch, false);
 
         // Combine: commit first, then new input actions
         let mut result = EngineResult::consumed()

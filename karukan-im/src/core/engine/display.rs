@@ -5,7 +5,6 @@ use super::*;
 impl InputMethodEngine {
     /// Build display text from the input buffer and romaji buffer
     /// Format: composed[:cursor] + romaji_buffer + composed[cursor:]
-    /// In katakana mode, the composed parts are converted to katakana.
     pub(super) fn build_input_display(&self) -> String {
         let before: String = self
             .input_buf
@@ -21,19 +20,7 @@ impl InputMethodEngine {
             .collect();
         let buffer = self.converters.romaji.buffer();
 
-        let katakana = self.input_mode == InputMode::Katakana;
-        let display_before = if katakana {
-            karukan_engine::hiragana_to_katakana(&before)
-        } else {
-            before
-        };
-        let display_after = if katakana {
-            karukan_engine::hiragana_to_katakana(&after)
-        } else {
-            after
-        };
-
-        format!("{}{}{}", display_before, buffer, display_after)
+        format!("{}{}{}", before, buffer, after)
     }
 
     /// Get the caret position in the display text (in characters)
@@ -96,25 +83,10 @@ impl InputMethodEngine {
         }
     }
 
-    /// Get the current mode indicator string
-    pub(super) fn mode_indicator(&self) -> String {
-        let base = match self.input_mode {
-            InputMode::Alphabet => "[A]",
-            InputMode::Katakana => "[カ]",
-            InputMode::Hiragana => "[あ]",
-        };
-        if self.live.enabled {
-            format!("⚡{}", base)
-        } else {
-            base.to_string()
-        }
-    }
-
     /// Format aux text for composing input mode
     pub(super) fn format_aux_composing(&self) -> String {
         let ctx = self.display_context();
         let model = self.model_name();
-        let indicator = self.mode_indicator();
         // Show reading + unconverted romaji buffer (e.g. "わせだd")
         let romaji_buf = self.converters.romaji.buffer();
         let reading = if self.input_buf.text.is_empty() && romaji_buf.is_empty() {
@@ -122,10 +94,11 @@ impl InputMethodEngine {
         } else {
             format!(" {}{}", self.input_buf.text, romaji_buf)
         };
+        let live_indicator = if self.live.enabled { "⚡" } else { "" };
         if ctx.is_empty() {
-            format!("{}{} Karukan ({})", indicator, reading, model)
+            format!("{}{} Karukan ({})", live_indicator, reading, model)
         } else {
-            format!("{}{} Karukan ({}) | {}", indicator, reading, model, ctx)
+            format!("{}{} Karukan ({}) | {}", live_indicator, reading, model, ctx)
         }
     }
 
@@ -196,7 +169,7 @@ impl InputMethodEngine {
             self.metrics.conversion_ms, self.metrics.process_key_ms
         );
         let model = self.last_used_model();
-        let indicator = self.mode_indicator();
+        let live_indicator = if self.live.enabled { "⚡" } else { "" };
         // Append unconverted romaji buffer to reading (e.g. "わせだ" + "d" → "わせだd")
         let romaji_buf = self.converters.romaji.buffer();
         let display_reading = if romaji_buf.is_empty() {
@@ -205,11 +178,11 @@ impl InputMethodEngine {
             format!("{}{}", reading, romaji_buf)
         };
         if ctx.is_empty() {
-            format!("{} {} | {} | {}", indicator, display_reading, timing, model)
+            format!("{} {} | {} | {}", live_indicator, display_reading, timing, model)
         } else {
             format!(
                 "{} {} | ctx: {} | {} | {}",
-                indicator, display_reading, ctx, timing, model
+                live_indicator, display_reading, ctx, timing, model
             )
         }
     }

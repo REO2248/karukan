@@ -118,16 +118,6 @@ impl Keysym {
         matches!(*self, Self::CONTROL_L | Self::CONTROL_R)
     }
 
-    /// Check if this is a right-side modifier key used for alphabet/hiragana mode toggle.
-    /// Different keyboards map the right CMD/Super key to different keysyms
-    /// (Alt_R, Super_R, Meta_R, Hyper_R), so we accept all of them.
-    pub fn is_mode_toggle_key(&self) -> bool {
-        matches!(
-            *self,
-            Self::ALT_R | Self::SUPER_R | Self::META_R | Self::HYPER_R
-        )
-    }
-
     /// Check if this is a modifier key
     pub fn is_modifier(&self) -> bool {
         matches!(
