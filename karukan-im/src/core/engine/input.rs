@@ -106,6 +106,16 @@ impl InputMethodEngine {
 
     /// Process key in empty state
     pub(super) fn process_key_empty(&mut self, key: &KeyEvent, shift_active: bool) -> EngineResult {
+        // Space without modifiers: commit half-width space directly to bypass fcitx5 punctuation auto-conversion.
+        if key.keysym == Keysym::SPACE && key.modifiers.is_empty() {
+            return EngineResult::consumed().with_action(EngineAction::Commit(" ".to_string()));
+        }
+
+        // Shift+Space: commit full-width space (U+3000) directly.
+        if key.keysym == Keysym::SPACE && key.modifiers.shift_key && !key.modifiers.control_key && !key.modifiers.alt_key {
+            return EngineResult::consumed().with_action(EngineAction::Commit("\u{3000}".to_string()));
+        }
+
         // Ctrl+Space: start input with full-width space
         if key.modifiers.control_key && key.keysym == Keysym::SPACE {
             self.converters.romaji.reset();
