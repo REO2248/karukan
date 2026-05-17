@@ -247,7 +247,12 @@ impl InputMethodEngine {
             }
             Keysym::SPACE | Keysym::DOWN => {
                 self.live.frozen = false;
-                self.start_conversion(false)
+                if key.keysym == Keysym::SPACE && key.modifiers.shift_key {
+                    // Shift+Space also starts conversion (standard IME behavior)
+                    self.start_conversion(false)
+                } else {
+                    self.start_conversion(false)
+                }
             }
             // Tab triggers conversion that bypasses the learning cache, so users
             // can escape stale or unwanted learned entries (mozc binds Tab to a

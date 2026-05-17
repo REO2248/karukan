@@ -585,7 +585,13 @@ impl InputMethodEngine {
         match key.keysym {
             Keysym::RETURN => self.commit_conversion(),
             Keysym::ESCAPE => self.cancel_conversion(),
-            Keysym::SPACE | Keysym::DOWN => self.next_candidate(),
+            Keysym::SPACE | Keysym::DOWN => {
+                if key.keysym == Keysym::SPACE && key.modifiers.shift_key {
+                    self.prev_candidate()
+                } else {
+                    self.next_candidate()
+                }
+            }
             Keysym::TAB => {
                 if key.modifiers.shift_key {
                     self.prev_candidate()
