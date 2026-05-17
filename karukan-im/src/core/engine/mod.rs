@@ -52,11 +52,11 @@ enum CandidateSource {
 impl CandidateSource {
     fn label(&self) -> &'static str {
         match self {
-            CandidateSource::UserDictionary => "\u{1F464} \u{30E6}\u{30FC}\u{30B6}\u{30FC}", // 👤 ユーザー
-            CandidateSource::Learning => "\u{1F4DD} \u{5B66}\u{7FD2}", // 📝 学習
-            CandidateSource::Model => "\u{1F916} AI",                  // 🤖 AI
-            CandidateSource::Dictionary => "\u{1F4DA} \u{8F9E}\u{66F8}", // 📚 辞書
-            CandidateSource::Rewriter => "\u{1F504} \u{5909}\u{63DB}", // 🔄 変換
+            CandidateSource::UserDictionary => "[\u{30E6}\u{30FC}\u{30B6}\u{30FC}\u{8F9E}\u{66F8}]", // [ユーザー辞書]
+            CandidateSource::Learning => "[\u{5C65}\u{6B74}]",                                     // [履歴]
+            CandidateSource::Model => "[\u{63A8}\u{8AD6}]",                                        // [推論]
+            CandidateSource::Dictionary => "[\u{30B7}\u{30B9}\u{30C6}\u{30E0}\u{8F9E}\u{66F8}]",      // [システム辞書]
+            CandidateSource::Rewriter => "",
             CandidateSource::Fallback => "",
         }
     }

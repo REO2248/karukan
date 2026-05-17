@@ -267,6 +267,7 @@ impl InputMethodEngine {
                         source_label: (!label.is_empty()).then(|| label.to_string()),
                         description: ac.description,
                     }
+
                 })
                 .collect(),
         );
@@ -488,7 +489,7 @@ impl InputMethodEngine {
         };
         let mut candidates: Vec<Candidate> = Vec::new();
         let mut seen = HashSet::new();
-        let label = CandidateSource::Learning.label().to_string();
+        let label = CandidateSource::Learning.label();
 
         // Exact match
         for (surface, _score) in cache.lookup(reading) {
@@ -499,7 +500,7 @@ impl InputMethodEngine {
                 candidates.push(Candidate {
                     text: surface,
                     reading: Some(reading.to_string()),
-                    source_label: Some(label.clone()),
+                    source_label: (!label.is_empty()).then(|| label.to_string()),
                     description: None,
                 });
             }
@@ -517,7 +518,7 @@ impl InputMethodEngine {
                 candidates.push(Candidate {
                     text: surface,
                     reading: Some(full_reading),
-                    source_label: Some(label.clone()),
+                    source_label: (!label.is_empty()).then(|| label.to_string()),
                     description: None,
                 });
             }
@@ -526,17 +527,21 @@ impl InputMethodEngine {
         candidates
     }
 
+
     /// Look up dictionary candidates for a reading (1 page, for live conversion display)
     ///
     /// Searches user dictionary first, then system dictionary.
     pub(super) fn lookup_dict_candidates(&self, reading: &str) -> Vec<Candidate> {
         self.search_dictionaries(reading, CandidateList::DEFAULT_PAGE_SIZE)
             .into_iter()
-            .map(|ac| Candidate {
-                text: ac.text,
-                reading: Some(reading.to_string()),
-                source_label: Some(ac.source.label().to_string()),
-                description: None,
+            .map(|ac| {
+                let label = ac.source.label();
+                Candidate {
+                    text: ac.text,
+                    reading: Some(reading.to_string()),
+                    source_label: (!label.is_empty()).then(|| label.to_string()),
+                    description: None,
+                }
             })
             .collect()
     }
@@ -545,7 +550,7 @@ impl InputMethodEngine {
     /// symbol input `「` → `『`, `【`, `（`, ...). Used in the auto-suggest path
     /// so users see mozc-style symbol variants without pressing Space first.
     pub(super) fn lookup_rewriter_variants(&self, reading: &str) -> Vec<Candidate> {
-        let source_label = CandidateSource::Rewriter.label().to_string();
+        let label = CandidateSource::Rewriter.label();
         self.converters
             .rewriters
             .rewrite_all(&[reading.to_string()])
@@ -553,7 +558,7 @@ impl InputMethodEngine {
             .map(|(text, description)| Candidate {
                 text,
                 reading: Some(reading.to_string()),
-                source_label: Some(source_label.clone()),
+                source_label: (!label.is_empty()).then(|| label.to_string()),
                 description,
             })
             .collect()
@@ -685,7 +690,7 @@ impl InputMethodEngine {
                 let text = candidates.selected_text().unwrap_or("").to_string();
                 let reading = candidates.selected().and_then(|c| c.reading.clone());
                 let is_learning = candidates.selected().is_some_and(|c| {
-                    c.source_label.as_deref() == Some("📝 学習")
+                    c.source_label.as_deref() == Some(CandidateSource::Learning.label())
                 });
                 if !is_learning {
                     return EngineResult::not_consumed();
@@ -721,7 +726,7 @@ impl InputMethodEngine {
             annotated
                 .into_iter()
                 .map(|ac| {
-                    let cand_reading = ac.reading.unwrap_or_else(|| current_reading.clone());
+                    let cand_reading = ac.reading.unwrap_or_else(|| reading.clone());
                     let label = ac.source.label();
                     Candidate {
                         text: ac.text,
@@ -729,6 +734,7 @@ impl InputMethodEngine {
                         source_label: (!label.is_empty()).then(|| label.to_string()),
                         description: ac.description,
                     }
+
                 })
                 .collect(),
         );

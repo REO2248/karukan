@@ -127,7 +127,7 @@ fn ctrl_delete_removes_learning_entry() {
     let candidates = engine.state().candidates().unwrap();
     let selected = candidates.selected().unwrap();
     assert_eq!(selected.text, "藍");
-    assert_eq!(selected.source_label.as_deref(), Some("📝 学習"));
+    assert_eq!(selected.source_label.as_deref(), Some("[履歴]"));
 
     // Press Ctrl+Delete to remove the learning entry
     let ctrl_delete = KeyEvent::new(Keysym::DELETE, KeyModifiers::new().with_control(true), true);
@@ -169,7 +169,7 @@ fn ctrl_delete_does_nothing_for_non_learning() {
     // The selected candidate should NOT be from learning
     let candidates = engine.state().candidates().unwrap();
     let selected = candidates.selected().unwrap();
-    assert_ne!(selected.source_label.as_deref(), Some("📝 学習"));
+    assert_ne!(selected.source_label.as_deref(), Some("[履歴]"));
 
     // Press Ctrl+Delete — should be ignored (not consumed)
     let ctrl_delete = KeyEvent::new(Keysym::DELETE, KeyModifiers::new().with_control(true), true);

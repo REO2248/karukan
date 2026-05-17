@@ -180,19 +180,25 @@ impl KarukanEngine {
                         .filter_map(|c| CString::new(c.text.as_str()).ok())
                         .collect();
                     // Per-candidate `description` powers the mozc-style
-                    // right-side comment. Source labels live in the aux
-                    // text (via `Candidate.source_label`), so here we only
-                    // surface the description and wrap it in `[…]` so it's
-                    // visually distinct from the candidate text itself.
+                    // right-side comment. We combine it with the source
+                    // label (e.g. [推論], [履歴]).
                     self.candidates.descriptions = page
                         .iter()
                         .map(|c| {
-                            let formatted = c
-                                .description
-                                .as_deref()
-                                .filter(|s| !s.is_empty())
-                                .map(|s| format!("[{}]", s))
-                                .unwrap_or_default();
+                            let mut parts = Vec::new();
+                            if let Some(desc) = c.description.as_deref().filter(|s| !s.is_empty()) {
+                                // Some descriptions (like rewriter's) already have brackets.
+                                // Don't double-wrap if it already starts with '['.
+                                if desc.starts_with('[') {
+                                    parts.push(desc.to_string());
+                                } else {
+                                    parts.push(format!("[{}]", desc));
+                                }
+                            }
+                            if let Some(label) = &c.source_label {
+                                parts.push(label.clone());
+                            }
+                            let formatted = parts.join(" ");
                             CString::new(formatted).unwrap_or_default()
                         })
                         .collect();
